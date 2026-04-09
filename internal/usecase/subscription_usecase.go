@@ -7,6 +7,7 @@ import (
 
 	"github.com/emadhejazian/subscription_service/internal/domain/entity"
 	domainrepo "github.com/emadhejazian/subscription_service/internal/domain/repository"
+	domainusecase "github.com/emadhejazian/subscription_service/internal/domain/usecase"
 )
 
 type subscriptionUsecase struct {
@@ -27,7 +28,12 @@ func NewSubscriptionUsecase(
 	}
 }
 
-func (u *subscriptionUsecase) Buy(userID string, productID uint, voucherCode *string, withTrial bool) (*entity.Subscription, error) {
+func (u *subscriptionUsecase) Buy(req domainusecase.BuyRequest) (*entity.Subscription, error) {
+	userID := req.UserID
+	productID := req.ProductID
+	voucherCode := req.VoucherCode
+	withTrial := req.WithTrial
+
 	existing, err := u.subscriptionRepo.GetByUserID(userID)
 	if err != nil {
 		return nil, err

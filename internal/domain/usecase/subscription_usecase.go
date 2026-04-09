@@ -3,9 +3,10 @@ package usecase
 import "github.com/emadhejazian/subscription_service/internal/domain/entity"
 
 type BuyRequest struct {
-	UserID    string
-	ProductID uint
-	VoucherCode string
+	UserID      string
+	ProductID   uint
+	VoucherCode *string
+	WithTrial   bool
 }
 
 type SubscriptionUsecase interface {

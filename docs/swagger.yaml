@@ -1,0 +1,321 @@
+basePath: /api/v1
+definitions:
+  handler.buyRequest:
+    properties:
+      product_id:
+        example: 1
+        type: integer
+      voucher_code:
+        example: SAVE10
+        type: string
+      with_trial:
+        example: false
+        type: boolean
+    required:
+    - product_id
+    type: object
+  handler.validateVoucherRequest:
+    properties:
+      code:
+        example: SAVE10
+        type: string
+      product_id:
+        example: 1
+        type: integer
+    required:
+    - code
+    - product_id
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: A subscription management service supporting products, subscriptions,
+    and vouchers.
+  title: Subscription Service API
+  version: "1.0"
+paths:
+  /products:
+    get:
+      description: Returns all available subscription products
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: []entity.Product'
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error message
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List all products
+      tags:
+      - products
+  /products/{id}:
+    get:
+      description: Returns a single product
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: entity.Product'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid product id
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: product not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get a product by ID
+      tags:
+      - products
+  /subscriptions:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new subscription for the authenticated user. Optionally
+        applies a voucher and/or starts a trial period.
+      parameters:
+      - description: Buy request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.buyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 'data: entity.Subscription'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "422":
+          description: unprocessable — duplicate subscription or invalid voucher
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Purchase a subscription
+      tags:
+      - subscriptions
+  /subscriptions/{id}:
+    get:
+      description: Returns a subscription with its associated product
+      parameters:
+      - description: Subscription ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: entity.Subscription'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid id
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a subscription by ID
+      tags:
+      - subscriptions
+  /subscriptions/{id}/cancel:
+    post:
+      description: Cancels an active, paused, or trialing subscription.
+      parameters:
+      - description: Subscription ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: entity.Subscription'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid id
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "422":
+          description: cannot cancel in current status
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Cancel a subscription
+      tags:
+      - subscriptions
+  /subscriptions/{id}/pause:
+    post:
+      description: Pauses an active subscription. Records the pause timestamp.
+      parameters:
+      - description: Subscription ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: entity.Subscription'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid id
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "422":
+          description: cannot pause in current status
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Pause a subscription
+      tags:
+      - subscriptions
+  /subscriptions/{id}/unpause:
+    post:
+      description: Resumes a paused subscription and extends the end date by the number
+        of days paused.
+      parameters:
+      - description: Subscription ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: entity.Subscription'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid id
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "422":
+          description: cannot unpause in current status
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Unpause a subscription
+      tags:
+      - subscriptions
+  /vouchers/validate:
+    post:
+      consumes:
+      - application/json
+      description: Checks whether a voucher code is valid for a given product and
+        returns the discounted price.
+      parameters:
+      - description: Validate request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.validateVoucherRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: validateVoucherResponse'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: bad request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: product not found
+          schema:
+            additionalProperties: true
+            type: object
+        "422":
+          description: invalid or expired voucher
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Validate a voucher
+      tags:
+      - vouchers
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and the token value.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
