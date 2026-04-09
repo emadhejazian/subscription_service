@@ -119,6 +119,28 @@ curl -X POST http://localhost:8080/api/v1/vouchers/validate \
 | `SAVE10` | Percent | 10% off | 100 |
 | `FLAT5` | Fixed | €5 off | 50 |
 
+## Testing
+
+Unit tests cover the subscription usecase layer using **testify/mock** — no database required.
+
+```bash
+go test ./internal/usecase/... -v
+```
+
+| Test | What it verifies |
+|------|-----------------|
+| `TestBuySubscription_Success` | Subscription created with correct status, prices, and dates |
+| `TestBuySubscription_AlreadyActive` | Returns error if user already has active subscription for the same product; `Create` never called |
+| `TestPause_Success` | Status transitions to `paused`, `PausedAt` is stamped |
+| `TestPause_WhenAlreadyPaused` | Returns error, `Save` never called |
+| `TestPause_WhenTrialing` | Returns error, `Save` never called |
+| `TestUnpause_ExtendsEndDate` | Status back to `active`, `PausedDays` accumulated, `EndDate` extended by exact days paused |
+| `TestCancel_Success` | Status transitions to `cancelled` |
+| `TestCancel_WhenAlreadyCancelled` | Returns error, `Save` never called |
+| `TestCancel_NotFound` | Repo error is propagated correctly |
+
+**Approach:** `SubscriptionRepository` is mocked with `testify/mock` — expectations are set per test and verified with `AssertExpectations`. `ProductRepository` and `VoucherRepository` use lightweight in-package stubs. No real DB, no Gin, no network.
+
 ## Design Decisions
 
 - **Clean Architecture layers** — `domain` (entities + interfaces) has zero external dependencies. `usecase` depends only on domain interfaces. `repository` and `delivery` implement those interfaces. This means business logic is fully testable without a database or HTTP framework.
