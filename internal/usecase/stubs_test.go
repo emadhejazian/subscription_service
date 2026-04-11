@@ -72,7 +72,12 @@ func (m *mockPlanRepo) GetByID(id uint) (*entity.Plan, error) {
 // --- voucher repo stub ---
 
 type mockVoucherRepo struct {
-	byCode map[string]*entity.Voucher
+	byCode       map[string]*entity.Voucher
+	// lockedByCode is returned by GetByCodeForUpdate when set.
+	// Use this to simulate the race condition where UsedCount changes
+	// between the outside IsValid check and the in-transaction lock.
+	lockedByCode map[string]*entity.Voucher
+	saveErr      error // if set, Save returns this error
 }
 
 func newMockVoucherRepo(vouchers ...*entity.Voucher) *mockVoucherRepo {
@@ -91,11 +96,20 @@ func (m *mockVoucherRepo) GetByCode(code string) (*entity.Voucher, error) {
 	return v, nil
 }
 
+// GetByCodeForUpdate returns the locked version if lockedByCode is set,
+// otherwise falls back to byCode — same as a normal read in tests without a race.
 func (m *mockVoucherRepo) GetByCodeForUpdate(code string) (*entity.Voucher, error) {
+	if m.lockedByCode != nil {
+		v, ok := m.lockedByCode[code]
+		if !ok {
+			return nil, errors.New("record not found")
+		}
+		return v, nil
+	}
 	return m.GetByCode(code)
 }
 
-func (m *mockVoucherRepo) Save(v *entity.Voucher) error { return nil }
+func (m *mockVoucherRepo) Save(v *entity.Voucher) error { return m.saveErr }
 
 // --- transactor stub ---
 // passes fn straight through using the provided repos — no real DB transaction needed in tests.

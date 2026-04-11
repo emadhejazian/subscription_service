@@ -1,4 +1,4 @@
-.PHONY: run build seed tidy swagger
+.PHONY: run build seed reset tidy swagger test
 
 run:
 	go run ./cmd
@@ -17,3 +17,6 @@ tidy:
 
 swagger:
 	$(shell go env GOPATH)/bin/swag init -g cmd/main.go --output docs
+
+test:
+	go test ./internal/usecase/... -v -race
