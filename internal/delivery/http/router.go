@@ -49,6 +49,7 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 		subscriptions.Use(middleware.Auth())
 		{
 			subscriptions.POST("", subscriptionHandler.Buy)
+			subscriptions.GET("/me", subscriptionHandler.GetMySubscription)
 			subscriptions.GET("/:id", subscriptionHandler.GetByID)
 			subscriptions.POST("/:id/pause", subscriptionHandler.Pause)
 			subscriptions.POST("/:id/unpause", subscriptionHandler.Unpause)

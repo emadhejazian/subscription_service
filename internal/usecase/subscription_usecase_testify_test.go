@@ -38,6 +38,14 @@ func (m *mockSubRepo) GetByUserID(userID string) ([]entity.Subscription, error) 
 	return args.Get(0).([]entity.Subscription), args.Error(1)
 }
 
+func (m *mockSubRepo) GetActiveByUserID(userID string) (*entity.Subscription, error) {
+	args := m.Called(userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.Subscription), args.Error(1)
+}
+
 func (m *mockSubRepo) Save(s *entity.Subscription) error {
 	args := m.Called(s)
 	return args.Error(0)

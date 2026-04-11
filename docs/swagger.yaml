@@ -273,6 +273,33 @@ paths:
       summary: Unpause a subscription
       tags:
       - subscriptions
+  /subscriptions/me:
+    get:
+      description: Returns the most recent active, paused, or trialing subscription
+        for the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: entity.Subscription'
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: no active subscription found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current user's active subscription
+      tags:
+      - subscriptions
   /vouchers/validate:
     post:
       consumes:
