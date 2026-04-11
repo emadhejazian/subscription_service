@@ -13,17 +13,20 @@ import (
 type subscriptionUsecase struct {
 	subscriptionRepo domainrepo.SubscriptionRepository
 	productRepo      domainrepo.ProductRepository
+	planRepo         domainrepo.PlanRepository
 	voucherRepo      domainrepo.VoucherRepository
 }
 
 func NewSubscriptionUsecase(
 	subscriptionRepo domainrepo.SubscriptionRepository,
 	productRepo domainrepo.ProductRepository,
+	planRepo domainrepo.PlanRepository,
 	voucherRepo domainrepo.VoucherRepository,
 ) *subscriptionUsecase {
 	return &subscriptionUsecase{
 		subscriptionRepo: subscriptionRepo,
 		productRepo:      productRepo,
+		planRepo:         planRepo,
 		voucherRepo:      voucherRepo,
 	}
 }
@@ -31,9 +34,11 @@ func NewSubscriptionUsecase(
 func (u *subscriptionUsecase) Buy(req domainusecase.BuyRequest) (*entity.Subscription, error) {
 	userID := req.UserID
 	productID := req.ProductID
+	planID := req.PlanID
 	voucherCode := req.VoucherCode
 	withTrial := req.WithTrial
 
+	// idempotency: one active subscription per product per user
 	existing, err := u.subscriptionRepo.GetByUserID(userID)
 	if err != nil {
 		return nil, err
@@ -47,12 +52,21 @@ func (u *subscriptionUsecase) Buy(req domainusecase.BuyRequest) (*entity.Subscri
 		}
 	}
 
-	product, err := u.productRepo.GetByID(productID)
-	if err != nil {
+	// validate product exists
+	if _, err := u.productRepo.GetByID(productID); err != nil {
 		return nil, errors.New("product not found")
 	}
 
-	originalPrice := product.Price
+	// fetch plan for pricing
+	plan, err := u.planRepo.GetByID(planID)
+	if err != nil {
+		return nil, errors.New("plan not found")
+	}
+	if plan.ProductID != productID {
+		return nil, errors.New("plan does not belong to this product")
+	}
+
+	originalPrice := plan.Price
 	discountAmount := 0.0
 	finalPrice := originalPrice
 	var voucherID *uint
@@ -80,12 +94,13 @@ func (u *subscriptionUsecase) Buy(req domainusecase.BuyRequest) (*entity.Subscri
 		voucherID = &voucher.ID
 	}
 
-	taxAmount := round2(finalPrice * product.TaxRate)
+	taxAmount := round2(finalPrice * plan.TaxRate)
 
 	now := time.Now()
 	sub := &entity.Subscription{
 		UserID:         userID,
 		ProductID:      productID,
+		PlanID:         planID,
 		OriginalPrice:  round2(originalPrice),
 		DiscountAmount: round2(discountAmount),
 		FinalPrice:     round2(finalPrice),
@@ -97,7 +112,7 @@ func (u *subscriptionUsecase) Buy(req domainusecase.BuyRequest) (*entity.Subscri
 		trialStart := now
 		trialEnd := now.AddDate(0, 1, 0)
 		startDate := trialEnd
-		endDate := trialEnd.AddDate(0, product.DurationMonths, 0)
+		endDate := trialEnd.AddDate(0, plan.DurationMonths, 0)
 
 		sub.Status = entity.StatusTrialing
 		sub.TrialStart = &trialStart
@@ -106,7 +121,7 @@ func (u *subscriptionUsecase) Buy(req domainusecase.BuyRequest) (*entity.Subscri
 		sub.EndDate = &endDate
 	} else {
 		startDate := now
-		endDate := now.AddDate(0, product.DurationMonths, 0)
+		endDate := now.AddDate(0, plan.DurationMonths, 0)
 
 		sub.Status = entity.StatusActive
 		sub.StartDate = &startDate
@@ -116,7 +131,7 @@ func (u *subscriptionUsecase) Buy(req domainusecase.BuyRequest) (*entity.Subscri
 	if err := u.subscriptionRepo.Create(sub); err != nil {
 		return nil, err
 	}
-	return sub, nil
+	return u.subscriptionRepo.GetByID(sub.ID)
 }
 
 func (u *subscriptionUsecase) GetByID(id uint) (*entity.Subscription, error) {

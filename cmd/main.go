@@ -2,7 +2,7 @@
 //
 // @title           Subscription Service API
 // @version         1.0
-// @description     A subscription management service supporting products, subscriptions, and vouchers.
+// @description     A subscription management service supporting sport courses, plans, and vouchers.
 //
 // @host            localhost:8080
 // @BasePath        /api/v1
@@ -26,6 +26,17 @@ import (
 
 func main() {
 	cfg := config.Load()
+
+	// reset drops all tables before AutoMigrate, so it must bypass Connect.
+	if len(os.Args) > 1 && os.Args[1] == "reset" {
+		rawDB, err := database.ConnectRaw(cfg)
+		if err != nil {
+			log.Fatalf("failed to connect for reset: %v", err)
+		}
+		database.Reset(rawDB)
+		log.Println("reset and seed complete")
+		return
+	}
 
 	db, err := database.Connect(cfg)
 	if err != nil {

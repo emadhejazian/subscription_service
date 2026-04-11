@@ -2,6 +2,9 @@ basePath: /api/v1
 definitions:
   handler.buyRequest:
     properties:
+      plan_id:
+        example: 2
+        type: integer
       product_id:
         example: 1
         type: integer
@@ -12,6 +15,7 @@ definitions:
         example: false
         type: boolean
     required:
+    - plan_id
     - product_id
     type: object
   handler.validateVoucherRequest:
@@ -19,17 +23,21 @@ definitions:
       code:
         example: SAVE10
         type: string
+      plan_id:
+        example: 2
+        type: integer
       product_id:
         example: 1
         type: integer
     required:
     - code
+    - plan_id
     - product_id
     type: object
 host: localhost:8080
 info:
   contact: {}
-  description: A subscription management service supporting products, subscriptions,
+  description: A subscription management service supporting sport courses, plans,
     and vouchers.
   title: Subscription Service API
   version: "1.0"
@@ -83,12 +91,42 @@ paths:
       summary: Get a product by ID
       tags:
       - products
+  /products/{id}/plans:
+    get:
+      description: Returns all subscription plans available for a given sport course.
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: []entity.Plan'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid product id
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: internal error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List plans for a product
+      tags:
+      - plans
   /subscriptions:
     post:
       consumes:
       - application/json
-      description: Creates a new subscription for the authenticated user. Optionally
-        applies a voucher and/or starts a trial period.
+      description: Creates a new subscription for the authenticated user for a specific
+        course and plan. Optionally applies a voucher and/or starts a trial period.
       parameters:
       - description: Buy request
         in: body
@@ -115,7 +153,8 @@ paths:
             additionalProperties: true
             type: object
         "422":
-          description: unprocessable — duplicate subscription or invalid voucher
+          description: unprocessable — duplicate subscription, invalid plan, or invalid
+            voucher
           schema:
             additionalProperties: true
             type: object
@@ -126,7 +165,7 @@ paths:
       - subscriptions
   /subscriptions/{id}:
     get:
-      description: Returns a subscription with its associated product
+      description: Returns a subscription with its associated product and plan
       parameters:
       - description: Subscription ID
         in: path
@@ -275,13 +314,13 @@ paths:
       - subscriptions
   /subscriptions/me:
     get:
-      description: Returns the most recent active, paused, or trialing subscription
-        for the authenticated user.
+      description: Returns all active, paused, or trialing subscriptions for the authenticated
+        user.
       produces:
       - application/json
       responses:
         "200":
-          description: 'data: entity.Subscription'
+          description: 'data: []entity.Subscription'
           schema:
             additionalProperties: true
             type: object
@@ -291,13 +330,13 @@ paths:
             additionalProperties: true
             type: object
         "404":
-          description: no active subscription found
+          description: no active subscriptions found
           schema:
             additionalProperties: true
             type: object
       security:
       - BearerAuth: []
-      summary: Get current user's active subscription
+      summary: Get current user's active subscriptions
       tags:
       - subscriptions
   /vouchers/validate:
@@ -305,7 +344,7 @@ paths:
       consumes:
       - application/json
       description: Checks whether a voucher code is valid for a given product and
-        returns the discounted price.
+        returns the discounted price for the selected plan.
       parameters:
       - description: Validate request
         in: body
@@ -327,7 +366,7 @@ paths:
             additionalProperties: true
             type: object
         "404":
-          description: product not found
+          description: plan not found
           schema:
             additionalProperties: true
             type: object

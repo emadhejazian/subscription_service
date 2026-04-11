@@ -15,18 +15,21 @@ import (
 func SetupRouter(db *gorm.DB) *gin.Engine {
 	// Repositories
 	productRepo := pgRepo.NewProductRepo(db)
+	planRepo := pgRepo.NewPlanRepo(db)
 	subscriptionRepo := pgRepo.NewSubscriptionRepo(db)
 	voucherRepo := pgRepo.NewVoucherRepo(db)
 
 	// Usecases
 	productUC := usecase.NewProductUsecase(productRepo)
+	planUC := usecase.NewPlanUsecase(planRepo)
 	voucherUC := usecase.NewVoucherUsecase(voucherRepo)
-	subscriptionUC := usecase.NewSubscriptionUsecase(subscriptionRepo, productRepo, voucherRepo)
+	subscriptionUC := usecase.NewSubscriptionUsecase(subscriptionRepo, productRepo, planRepo, voucherRepo)
 
 	// Handlers
 	productHandler := handler.NewProductHandler(productUC)
+	planHandler := handler.NewPlanHandler(planUC)
 	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionUC)
-	voucherHandler := handler.NewVoucherHandler(voucherUC, productUC)
+	voucherHandler := handler.NewVoucherHandler(voucherUC, planUC)
 
 	r := gin.Default()
 
@@ -38,6 +41,7 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 		{
 			products.GET("", productHandler.GetAll)
 			products.GET("/:id", productHandler.GetByID)
+			products.GET("/:id/plans", planHandler.GetByProductID)
 		}
 
 		vouchers := v1.Group("/vouchers")

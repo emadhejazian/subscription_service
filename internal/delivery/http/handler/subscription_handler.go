@@ -20,6 +20,7 @@ func NewSubscriptionHandler(uc domainusecase.SubscriptionUsecase) *SubscriptionH
 
 type buyRequest struct {
 	ProductID   uint    `json:"product_id"   binding:"required" example:"1"`
+	PlanID      uint    `json:"plan_id"      binding:"required" example:"2"`
 	VoucherCode *string `json:"voucher_code" example:"SAVE10"`
 	WithTrial   bool    `json:"with_trial"   example:"false"`
 }
@@ -27,7 +28,7 @@ type buyRequest struct {
 // Buy godoc
 //
 //	@Summary      Purchase a subscription
-//	@Description  Creates a new subscription for the authenticated user. Optionally applies a voucher and/or starts a trial period.
+//	@Description  Creates a new subscription for the authenticated user for a specific course and plan. Optionally applies a voucher and/or starts a trial period.
 //	@Tags         subscriptions
 //	@Accept       json
 //	@Produce      json
@@ -36,7 +37,7 @@ type buyRequest struct {
 //	@Success      201   {object}  map[string]interface{}  "data: entity.Subscription"
 //	@Failure      400   {object}  map[string]interface{}  "bad request"
 //	@Failure      401   {object}  map[string]interface{}  "unauthorized"
-//	@Failure      422   {object}  map[string]interface{}  "unprocessable — duplicate subscription or invalid voucher"
+//	@Failure      422   {object}  map[string]interface{}  "unprocessable — duplicate subscription, invalid plan, or invalid voucher"
 //	@Router       /subscriptions [post]
 func (h *SubscriptionHandler) Buy(c *gin.Context) {
 	userID, _ := c.Get("userID")
@@ -50,6 +51,7 @@ func (h *SubscriptionHandler) Buy(c *gin.Context) {
 	sub, err := h.usecase.Buy(domainusecase.BuyRequest{
 		UserID:      userID.(string),
 		ProductID:   req.ProductID,
+		PlanID:      req.PlanID,
 		VoucherCode: req.VoucherCode,
 		WithTrial:   req.WithTrial,
 	})
@@ -63,7 +65,7 @@ func (h *SubscriptionHandler) Buy(c *gin.Context) {
 // GetByID godoc
 //
 //	@Summary      Get a subscription by ID
-//	@Description  Returns a subscription with its associated product
+//	@Description  Returns a subscription with its associated product and plan
 //	@Tags         subscriptions
 //	@Produce      json
 //	@Security     BearerAuth
@@ -86,6 +88,32 @@ func (h *SubscriptionHandler) GetByID(c *gin.Context) {
 		return
 	}
 	middleware.SuccessResponse(c, http.StatusOK, sub)
+}
+
+// GetMySubscription godoc
+//
+//	@Summary      Get current user's active subscriptions
+//	@Description  Returns all active, paused, or trialing subscriptions for the authenticated user.
+//	@Tags         subscriptions
+//	@Produce      json
+//	@Security     BearerAuth
+//	@Success      200  {object}  map[string]interface{}  "data: []entity.Subscription"
+//	@Failure      401  {object}  map[string]interface{}  "unauthorized"
+//	@Failure      404  {object}  map[string]interface{}  "no active subscriptions found"
+//	@Router       /subscriptions/me [get]
+func (h *SubscriptionHandler) GetMySubscription(c *gin.Context) {
+	userID := c.GetString("userID")
+
+	subs, err := h.usecase.GetActiveByUserID(userID)
+	if err != nil {
+		middleware.ErrorResponse(c, http.StatusNotFound, err.Error())
+		return
+	}
+	if len(subs) == 0 {
+		middleware.ErrorResponse(c, http.StatusNotFound, "no active subscriptions found")
+		return
+	}
+	middleware.SuccessResponse(c, http.StatusOK, subs)
 }
 
 // Pause godoc
@@ -170,32 +198,6 @@ func (h *SubscriptionHandler) Cancel(c *gin.Context) {
 		return
 	}
 	middleware.SuccessResponse(c, http.StatusOK, sub)
-}
-
-// GetMySubscription godoc
-//
-//	@Summary      Get current user's active subscriptions
-//	@Description  Returns all active, paused, or trialing subscriptions for the authenticated user.
-//	@Tags         subscriptions
-//	@Produce      json
-//	@Security     BearerAuth
-//	@Success      200  {object}  map[string]interface{}  "data: []entity.Subscription"
-//	@Failure      401  {object}  map[string]interface{}  "unauthorized"
-//	@Failure      404  {object}  map[string]interface{}  "no active subscriptions found"
-//	@Router       /subscriptions/me [get]
-func (h *SubscriptionHandler) GetMySubscription(c *gin.Context) {
-	userID := c.GetString("userID")
-
-	subs, err := h.usecase.GetActiveByUserID(userID)
-	if err != nil {
-		middleware.ErrorResponse(c, http.StatusNotFound, err.Error())
-		return
-	}
-	if len(subs) == 0 {
-		middleware.ErrorResponse(c, http.StatusNotFound, "no active subscriptions found")
-		return
-	}
-	middleware.SuccessResponse(c, http.StatusOK, subs)
 }
 
 func parseID(c *gin.Context) (uint, error) {

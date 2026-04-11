@@ -13,6 +13,23 @@ func Seed(db *gorm.DB) {
 	seedVouchers(db)
 }
 
+// Reset drops all tables, recreates them, and seeds fresh data.
+// It accepts a raw (unmigrated) DB connection so AutoMigrate can run clean.
+func Reset(rawDB *gorm.DB) {
+	log.Println("reset: dropping tables...")
+	rawDB.Exec("DROP TABLE IF EXISTS subscriptions, vouchers, plans, products CASCADE")
+	log.Println("reset: tables dropped")
+
+	rawDB.AutoMigrate(
+		&entity.Product{},
+		&entity.Plan{},
+		&entity.Voucher{},
+		&entity.Subscription{},
+	)
+	log.Println("reset: tables recreated")
+	Seed(rawDB)
+}
+
 func seedProducts(db *gorm.DB) {
 	var count int64
 	db.Model(&entity.Product{}).Count(&count)
@@ -20,18 +37,51 @@ func seedProducts(db *gorm.DB) {
 		return
 	}
 
-	products := []entity.Product{
-		{Name: "Monthly Plan", Description: "1-month subscription", DurationMonths: 1, Price: 9.99, TaxRate: 0.19},
-		{Name: "Quarterly Plan", Description: "3-month subscription", DurationMonths: 3, Price: 24.99, TaxRate: 0.19},
-		{Name: "Semi-Annual Plan", Description: "6-month subscription", DurationMonths: 6, Price: 44.99, TaxRate: 0.19},
-		{Name: "Annual Plan", Description: "12-month subscription", DurationMonths: 12, Price: 79.99, TaxRate: 0.19},
+	type courseSpec struct {
+		name        string
+		description string
+		prices      [4]float64 // monthly, quarterly, semi-annual, annual
 	}
 
-	if err := db.Create(&products).Error; err != nil {
-		log.Printf("seed: failed to insert products: %v", err)
-		return
+	courses := []courseSpec{
+		{"Yoga", "Mindful yoga sessions for all levels", [4]float64{9.99, 24.99, 44.99, 79.99}},
+		{"Swimming", "Professional swimming coaching", [4]float64{14.99, 34.99, 59.99, 99.99}},
+		{"CrossFit", "High-intensity CrossFit training", [4]float64{19.99, 49.99, 84.99, 149.99}},
+		{"Cycling", "Indoor and outdoor cycling programs", [4]float64{12.99, 29.99, 54.99, 94.99}},
 	}
-	log.Printf("seed: inserted %d products", len(products))
+
+	planDefs := [4]struct {
+		name    string
+		months  int
+	}{
+		{"Monthly", 1},
+		{"Quarterly", 3},
+		{"Semi-Annual", 6},
+		{"Annual", 12},
+	}
+
+	for _, c := range courses {
+		product := entity.Product{Name: c.name, Description: c.description}
+		if err := db.Create(&product).Error; err != nil {
+			log.Printf("seed: failed to insert product %s: %v", c.name, err)
+			continue
+		}
+
+		for i, pd := range planDefs {
+			plan := entity.Plan{
+				ProductID:      product.ID,
+				Name:           pd.name,
+				DurationMonths: pd.months,
+				Price:          c.prices[i],
+				TaxRate:        0.19,
+			}
+			if err := db.Create(&plan).Error; err != nil {
+				log.Printf("seed: failed to insert plan %s for %s: %v", pd.name, c.name, err)
+			}
+		}
+	}
+
+	log.Printf("seed: inserted %d products with 4 plans each", len(courses))
 }
 
 func seedVouchers(db *gorm.DB) {

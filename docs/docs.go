@@ -87,6 +87,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/products/{id}/plans": {
+            "get": {
+                "description": "Returns all subscription plans available for a given sport course.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plans"
+                ],
+                "summary": "List plans for a product",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Product ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "data: []entity.Plan",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "invalid product id",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "internal error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/subscriptions": {
             "post": {
                 "security": [
@@ -94,7 +138,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new subscription for the authenticated user. Optionally applies a voucher and/or starts a trial period.",
+                "description": "Creates a new subscription for the authenticated user for a specific course and plan. Optionally applies a voucher and/or starts a trial period.",
                 "consumes": [
                     "application/json"
                 ],
@@ -139,7 +183,7 @@ const docTemplate = `{
                         }
                     },
                     "422": {
-                        "description": "unprocessable — duplicate subscription or invalid voucher",
+                        "description": "unprocessable — duplicate subscription, invalid plan, or invalid voucher",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -155,17 +199,17 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns the most recent active, paused, or trialing subscription for the authenticated user.",
+                "description": "Returns all active, paused, or trialing subscriptions for the authenticated user.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "subscriptions"
                 ],
-                "summary": "Get current user's active subscription",
+                "summary": "Get current user's active subscriptions",
                 "responses": {
                     "200": {
-                        "description": "data: entity.Subscription",
+                        "description": "data: []entity.Subscription",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -179,7 +223,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "no active subscription found",
+                        "description": "no active subscriptions found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -195,7 +239,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns a subscription with its associated product",
+                "description": "Returns a subscription with its associated product and plan",
                 "produces": [
                     "application/json"
                 ],
@@ -414,7 +458,7 @@ const docTemplate = `{
         },
         "/vouchers/validate": {
             "post": {
-                "description": "Checks whether a voucher code is valid for a given product and returns the discounted price.",
+                "description": "Checks whether a voucher code is valid for a given product and returns the discounted price for the selected plan.",
                 "consumes": [
                     "application/json"
                 ],
@@ -452,7 +496,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "product not found",
+                        "description": "plan not found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -473,9 +517,14 @@ const docTemplate = `{
         "handler.buyRequest": {
             "type": "object",
             "required": [
+                "plan_id",
                 "product_id"
             ],
             "properties": {
+                "plan_id": {
+                    "type": "integer",
+                    "example": 2
+                },
                 "product_id": {
                     "type": "integer",
                     "example": 1
@@ -494,12 +543,17 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "code",
+                "plan_id",
                 "product_id"
             ],
             "properties": {
                 "code": {
                     "type": "string",
                     "example": "SAVE10"
+                },
+                "plan_id": {
+                    "type": "integer",
+                    "example": 2
                 },
                 "product_id": {
                     "type": "integer",
@@ -525,7 +579,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "Subscription Service API",
-	Description:      "A subscription management service supporting products, subscriptions, and vouchers.",
+	Description:      "A subscription management service supporting sport courses, plans, and vouchers.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

@@ -53,7 +53,11 @@ func (m *mockSubRepo) Save(s *entity.Subscription) error {
 // ---------------------------------------------------------------------------
 
 func defaultProduct() *entity.Product {
-	return &entity.Product{ID: 1, Name: "Monthly", DurationMonths: 1, Price: 9.99, TaxRate: 0.19}
+	return &entity.Product{ID: 1, Name: "Yoga", Description: "Mindful yoga sessions"}
+}
+
+func defaultPlan() *entity.Plan {
+	return &entity.Plan{ID: 1, ProductID: 1, Name: "Monthly", DurationMonths: 1, Price: 9.99, TaxRate: 0.19}
 }
 
 func activeSubscription() *entity.Subscription {
@@ -63,6 +67,7 @@ func activeSubscription() *entity.Subscription {
 		ID:        1,
 		UserID:    "user-1",
 		ProductID: 1,
+		PlanID:    1,
 		Status:    entity.StatusActive,
 		StartDate: &now,
 		EndDate:   &end,
@@ -73,6 +78,7 @@ func newUC(subRepo *mockSubRepo) *subscriptionUsecase {
 	return NewSubscriptionUsecase(
 		subRepo,
 		newMockProductRepo(defaultProduct()),
+		newMockPlanRepo(defaultPlan()),
 		newMockVoucherRepo(),
 	)
 }
@@ -88,13 +94,14 @@ func TestBuySubscription_Success(t *testing.T) {
 
 	uc := newUC(repo)
 
-	sub, err := uc.Buy(domainusecase.BuyRequest{UserID: "user-1", ProductID: 1})
+	sub, err := uc.Buy(domainusecase.BuyRequest{UserID: "user-1", ProductID: 1, PlanID: 1})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, sub)
 	assert.Equal(t, entity.StatusActive, sub.Status)
 	assert.Equal(t, "user-1", sub.UserID)
 	assert.Equal(t, uint(1), sub.ProductID)
+	assert.Equal(t, uint(1), sub.PlanID)
 	assert.Equal(t, 9.99, sub.OriginalPrice)
 	assert.Equal(t, 1.9, sub.TaxAmount)
 	assert.NotNil(t, sub.StartDate)
@@ -109,11 +116,10 @@ func TestBuySubscription_AlreadyActive(t *testing.T) {
 
 	uc := newUC(repo)
 
-	sub, err := uc.Buy(domainusecase.BuyRequest{UserID: "user-1", ProductID: 1})
+	sub, err := uc.Buy(domainusecase.BuyRequest{UserID: "user-1", ProductID: 1, PlanID: 1})
 
 	assert.Nil(t, sub)
 	assert.EqualError(t, err, "user already has an active subscription for this product")
-	// Create must never be called
 	repo.AssertNotCalled(t, "Create", mock.Anything)
 	repo.AssertExpectations(t)
 }
@@ -167,7 +173,7 @@ func TestPause_WhenTrialing(t *testing.T) {
 }
 
 func TestUnpause_ExtendsEndDate(t *testing.T) {
-	pausedAt := time.Now().Add(-5 * 24 * time.Hour) // paused 5 days ago
+	pausedAt := time.Now().Add(-5 * 24 * time.Hour)
 	endDate := time.Now().Add(20 * 24 * time.Hour)
 	sub := activeSubscription()
 	sub.Status = entity.StatusPaused
@@ -187,7 +193,6 @@ func TestUnpause_ExtendsEndDate(t *testing.T) {
 	assert.Nil(t, result.PausedAt)
 	assert.Equal(t, 5, result.PausedDays)
 
-	// EndDate should be extended by 5 days
 	expectedEnd := endDate.Add(5 * 24 * time.Hour)
 	diff := result.EndDate.Sub(expectedEnd).Abs()
 	assert.Less(t, diff, time.Minute, "EndDate should be extended by the number of days paused")

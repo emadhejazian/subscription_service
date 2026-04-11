@@ -19,7 +19,7 @@ func (r *subscriptionRepo) Create(subscription *entity.Subscription) error {
 
 func (r *subscriptionRepo) GetByID(id uint) (*entity.Subscription, error) {
 	var subscription entity.Subscription
-	if err := r.db.Preload("Product").First(&subscription, id).Error; err != nil {
+	if err := r.db.Preload("Product").Preload("Plan").First(&subscription, id).Error; err != nil {
 		return nil, err
 	}
 	return &subscription, nil
@@ -27,7 +27,7 @@ func (r *subscriptionRepo) GetByID(id uint) (*entity.Subscription, error) {
 
 func (r *subscriptionRepo) GetByUserID(userID string) ([]entity.Subscription, error) {
 	var subscriptions []entity.Subscription
-	if err := r.db.Preload("Product").Where("user_id = ?", userID).Find(&subscriptions).Error; err != nil {
+	if err := r.db.Where("user_id = ?", userID).Find(&subscriptions).Error; err != nil {
 		return nil, err
 	}
 	return subscriptions, nil
@@ -35,7 +35,7 @@ func (r *subscriptionRepo) GetByUserID(userID string) ([]entity.Subscription, er
 
 func (r *subscriptionRepo) GetActiveByUserID(userID string) ([]entity.Subscription, error) {
 	var subscriptions []entity.Subscription
-	err := r.db.Preload("Product").
+	err := r.db.Preload("Product").Preload("Plan").
 		Where("user_id = ? AND status IN ?", userID, []string{"active", "paused", "trialing"}).
 		Order("created_at DESC").
 		Find(&subscriptions).Error

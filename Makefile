@@ -9,6 +9,9 @@ build:
 seed:
 	go run ./cmd seed
 
+reset:
+	go run ./cmd reset
+
 tidy:
 	go mod tidy
 

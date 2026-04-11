@@ -6,7 +6,7 @@ import (
 	"github.com/emadhejazian/subscription_service/internal/domain/entity"
 )
 
-// --- minimal product repo stub ---
+// --- product repo stub ---
 
 type mockProductRepo struct {
 	products map[uint]*entity.Product
@@ -36,7 +36,39 @@ func (m *mockProductRepo) GetByID(id uint) (*entity.Product, error) {
 	return p, nil
 }
 
-// --- minimal voucher repo stub ---
+// --- plan repo stub ---
+
+type mockPlanRepo struct {
+	plans map[uint]*entity.Plan
+}
+
+func newMockPlanRepo(plans ...*entity.Plan) *mockPlanRepo {
+	m := &mockPlanRepo{plans: make(map[uint]*entity.Plan)}
+	for _, p := range plans {
+		m.plans[p.ID] = p
+	}
+	return m
+}
+
+func (m *mockPlanRepo) GetByProductID(productID uint) ([]entity.Plan, error) {
+	var out []entity.Plan
+	for _, p := range m.plans {
+		if p.ProductID == productID {
+			out = append(out, *p)
+		}
+	}
+	return out, nil
+}
+
+func (m *mockPlanRepo) GetByID(id uint) (*entity.Plan, error) {
+	p, ok := m.plans[id]
+	if !ok {
+		return nil, errors.New("record not found")
+	}
+	return p, nil
+}
+
+// --- voucher repo stub ---
 
 type mockVoucherRepo struct {
 	byCode map[string]*entity.Voucher

@@ -16,6 +16,8 @@ type Subscription struct {
 	UserID         string             `gorm:"not null;index"`
 	ProductID      uint               `gorm:"not null"`
 	Product        Product            `gorm:"foreignKey:ProductID"`
+	PlanID         uint               `gorm:"not null"`
+	Plan           Plan               `gorm:"foreignKey:PlanID"`
 	Status         SubscriptionStatus `gorm:"not null;default:'trialing'"`
 	OriginalPrice  float64            `gorm:"not null"`
 	DiscountAmount float64            `gorm:"not null;default:0"`

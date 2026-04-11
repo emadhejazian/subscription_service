@@ -5,6 +5,7 @@ import "github.com/emadhejazian/subscription_service/internal/domain/entity"
 type BuyRequest struct {
 	UserID      string
 	ProductID   uint
+	PlanID      uint
 	VoucherCode *string
 	WithTrial   bool
 }
