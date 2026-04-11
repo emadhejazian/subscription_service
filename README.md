@@ -28,6 +28,7 @@ Swagger UI: http://localhost:8080/swagger/index.html
 | GET | `/api/v1/products/:id` | Get product by ID | No |
 | POST | `/api/v1/vouchers/validate` | Validate voucher + preview discount | No |
 | POST | `/api/v1/subscriptions` | Buy a subscription | Yes |
+| GET | `/api/v1/subscriptions/me` | Get current user's active subscription | Yes |
 | GET | `/api/v1/subscriptions/:id` | Get subscription by ID | Yes |
 | POST | `/api/v1/subscriptions/:id/pause` | Pause active subscription | Yes |
 | POST | `/api/v1/subscriptions/:id/unpause` | Resume paused subscription | Yes |
@@ -74,7 +75,13 @@ curl -X POST http://localhost:8080/api/v1/subscriptions \
   -d '{"product_id": 1, "with_trial": true}'
 ```
 
-**Get subscription**
+**Get current user's active subscription**
+```bash
+curl http://localhost:8080/api/v1/subscriptions/me \
+  -H "Authorization: Bearer user-123"
+```
+
+**Get subscription by ID**
 ```bash
 curl http://localhost:8080/api/v1/subscriptions/1 \
   -H "Authorization: Bearer user-123"
