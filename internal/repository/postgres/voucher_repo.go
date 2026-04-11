@@ -3,6 +3,7 @@ package postgres
 import (
 	"github.com/emadhejazian/subscription_service/internal/domain/entity"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type voucherRepo struct {
@@ -16,6 +17,15 @@ func NewVoucherRepo(db *gorm.DB) *voucherRepo {
 func (r *voucherRepo) GetByCode(code string) (*entity.Voucher, error) {
 	var voucher entity.Voucher
 	if err := r.db.Where("code = ?", code).First(&voucher).Error; err != nil {
+		return nil, err
+	}
+	return &voucher, nil
+}
+
+func (r *voucherRepo) GetByCodeForUpdate(code string) (*entity.Voucher, error) {
+	var voucher entity.Voucher
+	if err := r.db.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("code = ?", code).First(&voucher).Error; err != nil {
 		return nil, err
 	}
 	return &voucher, nil

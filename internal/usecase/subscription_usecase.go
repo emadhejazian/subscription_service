@@ -129,15 +129,26 @@ func (u *subscriptionUsecase) Buy(req domainusecase.BuyRequest) (*entity.Subscri
 		sub.EndDate = &endDate
 	}
 
-	// atomic: increment voucher usage and create subscription in one transaction.
-	// if either write fails the whole thing rolls back automatically.
+	// atomic: lock the voucher row, re-validate, increment usage, and create the subscription
+	// in one transaction. SELECT FOR UPDATE blocks any concurrent transaction that also tries
+	// to lock the same voucher row, eliminating the TOCTOU race on UsedCount.
 	if err := u.transactor.WithinTransaction(func(
 		txSubRepo domainrepo.SubscriptionRepository,
 		txVoucherRepo domainrepo.VoucherRepository,
 	) error {
 		if voucher != nil {
-			voucher.UsedCount++
-			if err := txVoucherRepo.Save(voucher); err != nil {
+			// re-fetch with a row-level lock — reads the latest UsedCount under the lock
+			locked, err := txVoucherRepo.GetByCodeForUpdate(voucher.Code)
+			if err != nil {
+				return err
+			}
+			// re-validate: another request may have consumed the last use between our
+			// outside check and now
+			if !locked.IsValid() {
+				return errors.New("voucher is expired or has reached its usage limit")
+			}
+			locked.UsedCount++
+			if err := txVoucherRepo.Save(locked); err != nil {
 				return err
 			}
 		}

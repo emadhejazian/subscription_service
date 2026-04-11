@@ -91,6 +91,10 @@ func (m *mockVoucherRepo) GetByCode(code string) (*entity.Voucher, error) {
 	return v, nil
 }
 
+func (m *mockVoucherRepo) GetByCodeForUpdate(code string) (*entity.Voucher, error) {
+	return m.GetByCode(code)
+}
+
 func (m *mockVoucherRepo) Save(v *entity.Voucher) error { return nil }
 
 // --- transactor stub ---
