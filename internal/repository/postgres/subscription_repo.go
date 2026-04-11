@@ -46,5 +46,5 @@ func (r *subscriptionRepo) GetActiveByUserID(userID string) ([]entity.Subscripti
 }
 
 func (r *subscriptionRepo) Save(subscription *entity.Subscription) error {
-	return r.db.Save(subscription).Error
+	return r.db.Omit("Product", "Plan").Save(subscription).Error
 }
