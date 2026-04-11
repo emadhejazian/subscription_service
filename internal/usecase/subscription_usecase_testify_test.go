@@ -75,11 +75,14 @@ func activeSubscription() *entity.Subscription {
 }
 
 func newUC(subRepo *mockSubRepo) *subscriptionUsecase {
+	voucherRepo := newMockVoucherRepo()
+	txr := &mockTransactor{subscriptionRepo: subRepo, voucherRepo: voucherRepo}
 	return NewSubscriptionUsecase(
 		subRepo,
 		newMockProductRepo(defaultProduct()),
 		newMockPlanRepo(defaultPlan()),
-		newMockVoucherRepo(),
+		voucherRepo,
+		txr,
 	)
 }
 
@@ -90,7 +93,27 @@ func newUC(subRepo *mockSubRepo) *subscriptionUsecase {
 func TestBuySubscription_Success(t *testing.T) {
 	repo := new(mockSubRepo)
 	repo.On("GetByUserID", "user-1").Return([]entity.Subscription{}, nil)
-	repo.On("Create", mock.AnythingOfType("*entity.Subscription")).Return(nil)
+	repo.On("Create", mock.AnythingOfType("*entity.Subscription")).
+		Return(nil).
+		Run(func(args mock.Arguments) {
+			// simulate DB auto-increment so GetByID is called with a known ID
+			args.Get(0).(*entity.Subscription).ID = 1
+		})
+
+	now := time.Now()
+	end := now.AddDate(0, 1, 0)
+	repo.On("GetByID", uint(1)).Return(&entity.Subscription{
+		ID:            1,
+		UserID:        "user-1",
+		ProductID:     1,
+		PlanID:        1,
+		Status:        entity.StatusActive,
+		OriginalPrice: 9.99,
+		TaxAmount:     round2(9.99 * 0.19),
+		FinalPrice:    9.99,
+		StartDate:     &now,
+		EndDate:       &end,
+	}, nil)
 
 	uc := newUC(repo)
 
@@ -103,7 +126,7 @@ func TestBuySubscription_Success(t *testing.T) {
 	assert.Equal(t, uint(1), sub.ProductID)
 	assert.Equal(t, uint(1), sub.PlanID)
 	assert.Equal(t, 9.99, sub.OriginalPrice)
-	assert.Equal(t, 1.9, sub.TaxAmount)
+	assert.Equal(t, round2(9.99*0.19), sub.TaxAmount)
 	assert.NotNil(t, sub.StartDate)
 	assert.NotNil(t, sub.EndDate)
 	assert.Nil(t, sub.TrialStart)

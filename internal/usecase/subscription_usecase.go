@@ -15,6 +15,7 @@ type subscriptionUsecase struct {
 	productRepo      domainrepo.ProductRepository
 	planRepo         domainrepo.PlanRepository
 	voucherRepo      domainrepo.VoucherRepository
+	transactor       domainrepo.Transactor
 }
 
 func NewSubscriptionUsecase(
@@ -22,12 +23,14 @@ func NewSubscriptionUsecase(
 	productRepo domainrepo.ProductRepository,
 	planRepo domainrepo.PlanRepository,
 	voucherRepo domainrepo.VoucherRepository,
+	transactor domainrepo.Transactor,
 ) *subscriptionUsecase {
 	return &subscriptionUsecase{
 		subscriptionRepo: subscriptionRepo,
 		productRepo:      productRepo,
 		planRepo:         planRepo,
 		voucherRepo:      voucherRepo,
+		transactor:       transactor,
 	}
 }
 
@@ -70,28 +73,26 @@ func (u *subscriptionUsecase) Buy(req domainusecase.BuyRequest) (*entity.Subscri
 	discountAmount := 0.0
 	finalPrice := originalPrice
 	var voucherID *uint
+	var voucher *entity.Voucher
 
+	// validate voucher outside the transaction (read-only checks)
 	if voucherCode != nil && *voucherCode != "" {
-		voucher, err := u.voucherRepo.GetByCode(*voucherCode)
+		v, err := u.voucherRepo.GetByCode(*voucherCode)
 		if err != nil {
 			return nil, errors.New("voucher not found")
 		}
-		if !voucher.IsValid() {
+		if !v.IsValid() {
 			return nil, errors.New("voucher is expired or has reached its usage limit")
 		}
-		if voucher.ProductID != nil && *voucher.ProductID != productID {
+		if v.ProductID != nil && *v.ProductID != productID {
 			return nil, errors.New("voucher is not valid for this product")
 		}
 
-		discounted := voucher.ApplyDiscount(originalPrice)
+		discounted := v.ApplyDiscount(originalPrice)
 		discountAmount = originalPrice - discounted
 		finalPrice = discounted
-
-		voucher.UsedCount++
-		if err := u.voucherRepo.Save(voucher); err != nil {
-			return nil, err
-		}
-		voucherID = &voucher.ID
+		voucher = v
+		voucherID = &v.ID
 	}
 
 	taxAmount := round2(finalPrice * plan.TaxRate)
@@ -128,9 +129,23 @@ func (u *subscriptionUsecase) Buy(req domainusecase.BuyRequest) (*entity.Subscri
 		sub.EndDate = &endDate
 	}
 
-	if err := u.subscriptionRepo.Create(sub); err != nil {
+	// atomic: increment voucher usage and create subscription in one transaction.
+	// if either write fails the whole thing rolls back automatically.
+	if err := u.transactor.WithinTransaction(func(
+		txSubRepo domainrepo.SubscriptionRepository,
+		txVoucherRepo domainrepo.VoucherRepository,
+	) error {
+		if voucher != nil {
+			voucher.UsedCount++
+			if err := txVoucherRepo.Save(voucher); err != nil {
+				return err
+			}
+		}
+		return txSubRepo.Create(sub)
+	}); err != nil {
 		return nil, err
 	}
+
 	return u.subscriptionRepo.GetByID(sub.ID)
 }
 

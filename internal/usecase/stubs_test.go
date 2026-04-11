@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/emadhejazian/subscription_service/internal/domain/entity"
+	domainrepo "github.com/emadhejazian/subscription_service/internal/domain/repository"
 )
 
 // --- product repo stub ---
@@ -91,3 +92,18 @@ func (m *mockVoucherRepo) GetByCode(code string) (*entity.Voucher, error) {
 }
 
 func (m *mockVoucherRepo) Save(v *entity.Voucher) error { return nil }
+
+// --- transactor stub ---
+// passes fn straight through using the provided repos — no real DB transaction needed in tests.
+
+type mockTransactor struct {
+	subscriptionRepo domainrepo.SubscriptionRepository
+	voucherRepo      domainrepo.VoucherRepository
+}
+
+func (m *mockTransactor) WithinTransaction(fn func(
+	domainrepo.SubscriptionRepository,
+	domainrepo.VoucherRepository,
+) error) error {
+	return fn(m.subscriptionRepo, m.voucherRepo)
+}

@@ -18,12 +18,13 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 	planRepo := pgRepo.NewPlanRepo(db)
 	subscriptionRepo := pgRepo.NewSubscriptionRepo(db)
 	voucherRepo := pgRepo.NewVoucherRepo(db)
+	transactor := pgRepo.NewTransactor(db)
 
 	// Usecases
 	productUC := usecase.NewProductUsecase(productRepo)
 	planUC := usecase.NewPlanUsecase(planRepo)
 	voucherUC := usecase.NewVoucherUsecase(voucherRepo)
-	subscriptionUC := usecase.NewSubscriptionUsecase(subscriptionRepo, productRepo, planRepo, voucherRepo)
+	subscriptionUC := usecase.NewSubscriptionUsecase(subscriptionRepo, productRepo, planRepo, voucherRepo, transactor)
 
 	// Handlers
 	productHandler := handler.NewProductHandler(productUC)
