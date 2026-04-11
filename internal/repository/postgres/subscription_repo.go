@@ -33,16 +33,16 @@ func (r *subscriptionRepo) GetByUserID(userID string) ([]entity.Subscription, er
 	return subscriptions, nil
 }
 
-func (r *subscriptionRepo) GetActiveByUserID(userID string) (*entity.Subscription, error) {
-	var subscription entity.Subscription
+func (r *subscriptionRepo) GetActiveByUserID(userID string) ([]entity.Subscription, error) {
+	var subscriptions []entity.Subscription
 	err := r.db.Preload("Product").
 		Where("user_id = ? AND status IN ?", userID, []string{"active", "paused", "trialing"}).
 		Order("created_at DESC").
-		First(&subscription).Error
+		Find(&subscriptions).Error
 	if err != nil {
 		return nil, err
 	}
-	return &subscription, nil
+	return subscriptions, nil
 }
 
 func (r *subscriptionRepo) Save(subscription *entity.Subscription) error {

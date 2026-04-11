@@ -123,12 +123,12 @@ func (u *subscriptionUsecase) GetByID(id uint) (*entity.Subscription, error) {
 	return u.subscriptionRepo.GetByID(id)
 }
 
-func (u *subscriptionUsecase) GetActiveByUserID(userID string) (*entity.Subscription, error) {
-	sub, err := u.subscriptionRepo.GetActiveByUserID(userID)
+func (u *subscriptionUsecase) GetActiveByUserID(userID string) ([]entity.Subscription, error) {
+	subs, err := u.subscriptionRepo.GetActiveByUserID(userID)
 	if err != nil {
-		return nil, errors.New("no active subscription found")
+		return nil, errors.New("no active subscriptions found")
 	}
-	return sub, nil
+	return subs, nil
 }
 
 func (u *subscriptionUsecase) Pause(id uint) (*entity.Subscription, error) {

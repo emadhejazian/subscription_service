@@ -12,7 +12,7 @@ type BuyRequest struct {
 type SubscriptionUsecase interface {
 	Buy(req BuyRequest) (*entity.Subscription, error)
 	GetByID(id uint) (*entity.Subscription, error)
-	GetActiveByUserID(userID string) (*entity.Subscription, error)
+	GetActiveByUserID(userID string) ([]entity.Subscription, error)
 	Pause(id uint) (*entity.Subscription, error)
 	Unpause(id uint) (*entity.Subscription, error)
 	Cancel(id uint) (*entity.Subscription, error)

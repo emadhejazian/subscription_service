@@ -174,24 +174,28 @@ func (h *SubscriptionHandler) Cancel(c *gin.Context) {
 
 // GetMySubscription godoc
 //
-//	@Summary      Get current user's active subscription
-//	@Description  Returns the most recent active, paused, or trialing subscription for the authenticated user.
+//	@Summary      Get current user's active subscriptions
+//	@Description  Returns all active, paused, or trialing subscriptions for the authenticated user.
 //	@Tags         subscriptions
 //	@Produce      json
 //	@Security     BearerAuth
-//	@Success      200  {object}  map[string]interface{}  "data: entity.Subscription"
+//	@Success      200  {object}  map[string]interface{}  "data: []entity.Subscription"
 //	@Failure      401  {object}  map[string]interface{}  "unauthorized"
-//	@Failure      404  {object}  map[string]interface{}  "no active subscription found"
+//	@Failure      404  {object}  map[string]interface{}  "no active subscriptions found"
 //	@Router       /subscriptions/me [get]
 func (h *SubscriptionHandler) GetMySubscription(c *gin.Context) {
 	userID := c.GetString("userID")
 
-	sub, err := h.usecase.GetActiveByUserID(userID)
+	subs, err := h.usecase.GetActiveByUserID(userID)
 	if err != nil {
 		middleware.ErrorResponse(c, http.StatusNotFound, err.Error())
 		return
 	}
-	middleware.SuccessResponse(c, http.StatusOK, sub)
+	if len(subs) == 0 {
+		middleware.ErrorResponse(c, http.StatusNotFound, "no active subscriptions found")
+		return
+	}
+	middleware.SuccessResponse(c, http.StatusOK, subs)
 }
 
 func parseID(c *gin.Context) (uint, error) {
