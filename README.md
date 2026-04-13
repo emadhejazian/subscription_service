@@ -170,6 +170,38 @@ go test ./internal/usecase/... -v
 
 **Approach:** `SubscriptionRepository` is mocked with `testify/mock` — expectations are set per test and verified with `AssertExpectations`. `ProductRepository`, `PlanRepository`, and `VoucherRepository` use lightweight in-package stubs. No real DB, no Gin, no network.
 
+## Concurrency & Data Integrity
+
+### Race Condition on Voucher Usage Count (TOCTOU)
+
+A voucher has a `MaxUses` limit and a `UsedCount` counter. Without protection, two concurrent requests using the same voucher can both read `UsedCount = 49` (below the limit of 50), both pass validation, and both increment to 50 — resulting in 51 total uses. This is a classic **Time-Of-Check / Time-Of-Use (TOCTOU)** race.
+
+**Fix applied — two-phase check with `SELECT FOR UPDATE`:**
+
+1. **Outside the transaction** — `GetByCode` does a plain read to give a fast early rejection (no lock held while doing product/plan lookups).
+2. **Inside the transaction** — `GetByCodeForUpdate` issues `SELECT ... FOR UPDATE`, acquiring a **row-level lock** on the voucher row. Any concurrent transaction that also tries to lock the same row blocks until this one commits or rolls back. The voucher is re-validated after the lock is acquired (the count may have changed since step 1), then `UsedCount` is incremented and the subscription is created — all atomically.
+
+```
+concurrent req A ──► SELECT FOR UPDATE (locks row) ──► re-validate ──► UsedCount++ ──► CREATE sub ──► COMMIT
+concurrent req B ──►                      (blocked) ──────────────────────────────────────────────────► SELECT FOR UPDATE ──► re-validate → 429
+```
+
+### Database Transaction (Atomicity)
+
+The critical write path (increment voucher usage + create subscription) runs inside a single GORM transaction via the `Transactor` abstraction (`WithinTransaction`). Both the `SubscriptionRepository` and `VoucherRepository` passed inside the callback share the **same underlying `*gorm.DB` transaction**, so:
+
+- If the subscription `Create` fails, the voucher `UsedCount` increment is rolled back automatically.
+- If the voucher lock or re-validation fails, no subscription row is written.
+- The two operations are **always consistent** — there is no state where a voucher is consumed but no subscription exists, or vice versa.
+
+The `Transactor` interface lives in the domain layer, keeping the usecase free of any GORM or Postgres import. The concrete implementation (`postgres.transactor`) wraps `db.Transaction(...)`.
+
+### Other Integrity Measures
+
+- **Idempotency guard** — before any DB write, the usecase checks for an existing `active`, `trialing`, or `paused` subscription for the same user + product. Duplicate subscriptions are rejected at the application layer.
+- **Plan–product validation** — the usecase verifies `plan.ProductID == req.ProductID` before accepting a purchase, preventing a client from mixing plans across courses.
+- **State machine guards** — `CanPause`, `CanUnpause`, `CanCancel` are enforced on the entity before any mutation, making invalid transitions impossible regardless of call order.
+
 ## Design Decisions
 
 - **Clean Architecture layers** — `domain` (entities + interfaces) has zero external dependencies. `usecase` depends only on domain interfaces. `repository` and `delivery` implement those interfaces. This means business logic is fully testable without a database or HTTP framework.
